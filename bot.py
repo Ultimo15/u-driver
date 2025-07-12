@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Token del bot (CAMBIA ESTO)
 BOT_TOKEN = "7635211423:AAGKnLPi4lsPe0YjCA28P5Y2iL39dvw9Q2A"
 # URL de tu app (la actualizaremos después)
-WEB_APP_URL = "https://tu-app.onrender.com"
+WEB_APP_URL = "https://u-driver.onrender.com"
 
 # Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
