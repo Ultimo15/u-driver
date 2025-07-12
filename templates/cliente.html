@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>U-Driver - Pedir Viaje</title>
+    
+    <!-- Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Estilos Uber -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f6f6f6;
+            color: #000;
+            overflow-x: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: #000;
+            color: #fff;
+            padding: 15px 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -1px;
+        }
+        
+        .logo {
+            font-weight: 700;
+            font-size: 24px;
+            letter-spacing: -2px;
+        }
+        
+        /* Mapa */
+        #map {
+            height: 40vh;
+            width: 100%;
+            margin-top: 60px;
+            position: fixed;
+            top: 0;
+        }
+        
+        /* Panel inferior */
+        .bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            max-height: 60vh;
+            min-height: 300px;
+            overflow-y: auto;
+            z-index: 1001;
+            touch-action: pan-y;
+        }
+        
+        /* Inputs estilo Uber */
+        .location-input {
+            background: #f6f6f6;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 10px;
+            width: 100%;
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .location-input.pickup {
+            border-left: 4px solid #00D646;
+        }
+        
+        .location-input.dropoff {
+            border-left: 4px solid #000;
+        }
+        
+        .location-input .icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        
+        /* Botones de precio */
+        .price-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .price-btn {
+            background: #f6f6f6;
+            border: 2px solid transparent;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .price-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .price-btn.selected {
+            background: #000;
+            color: #fff;
+            border-color: #000;
+        }
+        
+        /* Botón principal */
+        .main-button {
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 18px;
+            border-radius: 10px;
+            width: 100%;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        .main-button:active {
+            transform: scale(0.98);
+            background: #333;
+        }
+        
+        .main-button.confirm {
+            background: #00D646;
+            color: #000;
+        }
+        
+        .main-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* Estados */
+        .status-bar {
+            background: #E5E5E5;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .status-bar.active {
+            display: block;
+            background: #00D646;
+            color: #000;
+            font-weight: 600;
+        }
+        
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: #fff;
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 50%;
+            transform: translateY(-50%);
+            text-align: center;
+        }
+        
+        .modal h2 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .modal .military-code {
+            font-size: 32px;
+            font-weight: 700;
+            color: #00D646;
+            margin: 20px 0;
+            letter-spacing: 2px;
+        }
+        
+        /* Botones de emergencia */
+        .emergency-buttons {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 1002;
+        }
+        
+        .emergency-btn {
+            background: #FF4444;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .emergency-btn.warning {
+            background: #FFA500;
+        }
+        
+        /* Ajustes para móvil */
+        @media (max-height: 700px) {
+            #map {
+                height: 35vh;
+            }
+            
+            .bottom-panel {
+                max-height: 65vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">U-Driver</div>
+        <span id="user-name"></span>
+    </div>
+    
+    <!-- Mapa -->
+    <div id="map"></div>
+    
+    <!-- Panel inferior -->
+    <div class="bottom-panel" id="panel">
+        <!-- Estado del viaje -->
+        <div class="status-bar" id="status">
+            <span id="status-text">Buscando conductor...</span>
+        </div>
+        
+        <!-- Inputs de ubicación -->
+        <div id="location-section">
+            <div class="location-input pickup" onclick="setPickupLocation()">
+                <span class="icon">📍</span>
+                <span id="pickup-text">Ubicación actual (GPS)</span>
+            </div>
+            
+            <div class="location-input dropoff" onclick="showDestinations()">
+                <span class="icon">📍</span>
+                <span id="dropoff-text">¿A dónde vas?</span>
+            </div>
+        </div>
+        
+        <!-- Botones de precio -->
+        <div id="price-section" style="display: none;">
+            <h3 style="margin-bottom: 15px;">Ofrece tu precio:</h3>
+            <div class="price-buttons">
+                <button class="price-btn" onclick="selectPrice(5000)">$5.000</button>
+                <button class="price-btn" onclick="selectPrice(7000)">$7.000</button>
+                <button class="price-btn" onclick="selectPrice(10000)">$10.000</button>
+                <button class="price-btn" onclick="selectPrice(12000)">$12.000</button>
+                <button class="price-btn" onclick="selectPrice(15000)">$15.000</button>
+                <button class="price-btn" onclick="customPrice()">Otro</button>
+            </div>
+        </div>
+        
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px;">Buscando conductores...</p>
+        </div>
+        
+        <!-- Botón principal -->
+        <button class="main-button" id="main-btn" onclick="handleMainButton()" disabled>
+            Continuar
+        </button>
+    </div>
+    
+    <!-- Botones de emergencia -->
+    <div class="emergency-buttons">
+        <button class="emergency-btn warning" onclick="contactSupport('quejas')">⚠️ Quejas</button>
+        <button class="emergency-btn" onclick="contactSupport('sos')">🆘 SOS</button>
+    </div>
+    
+    <!-- Modal de confirmación -->
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content">
+            <h2>¡Viaje Confirmado!</h2>
+            <p>Tu conductor está en camino</p>
+            <div class="military-code" id="military-code">ALFA-123</div>
+            <p>Comparte este código con tu conductor</p>
+            <button class="main-button confirm" onclick="closeModal()">Entendido</button>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Inicializar Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // Variables globales
+        let map;
+        let userMarker;
+        let pickupCoords = null;
+        let dropoffCoords = null;
+        let selectedPrice = null;
+        let currentStep = 'pickup';
+        
+        // Inicializar mapa
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: false,
+                dragging: true,
+                tap: false
+            }).setView([7.7714, -72.2260], 14);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+            
+            // Agregar control de zoom en esquina inferior
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+            
+            // Obtener ubicación actual
+            getCurrentLocation();
+        }
+        
+        // Obtener ubicación GPS
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        pickupCoords = [lat, lng];
+                        
+                        // Centrar mapa
+                        map.setView([lat, lng], 16);
+                        
+                        // Agregar marcador
+                        if (userMarker) map.removeLayer(userMarker);
+                        userMarker = L.marker([lat, lng]).addTo(map);
+                        
+                        document.getElementById('pickup-text').textContent = 'Tu ubicación actual';
+                        updateMainButton();
+                    },
+                    error => {
+                        console.error('Error GPS:', error);
+                        // Ubicación por defecto: Centro de San Antonio
+                        pickupCoords = [7.7714, -72.2260];
+                        map.setView(pickupCoords, 14);
+                        document.getElementById('pickup-text').textContent = 'Centro de San Antonio';
+                        updateMainButton();
+                    }
+                );
+            }
+        }
+        
+        // Configurar ubicación de recogida
+        function setPickupLocation() {
+            getCurrentLocation();
+        }
+        
+        // Mostrar destinos populares
+        function showDestinations() {
+            // Por ahora solo mostrar placeholder
+            document.getElementById('dropoff-text').textContent = 'Terminal de San Antonio';
+            dropoffCoords = [7.7750, -72.2300];
+            
+            // Mostrar sección de precio
+            document.getElementById('price-section').style.display = 'block';
+            currentStep = 'price';
+            updateMainButton();
+        }
+        
+        // Seleccionar precio
+        function selectPrice(price) {
+            selectedPrice = price;
+            
+            // Actualizar botones
+            document.querySelectorAll('.price-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+            
+            updateMainButton();
+        }
+        
+        // Precio personalizado
+        function customPrice() {
+            const price = prompt('Ingresa tu oferta (solo números):');
+            if (price && !isNaN(price)) {
+                selectPrice(parseInt(price));
+            }
+        }
+        
+        // Actualizar botón principal
+        function updateMainButton() {
+            const btn = document.getElementById('main-btn');
+            
+            if (currentStep === 'pickup' && pickupCoords) {
+                btn.textContent = 'Continuar';
+                btn.disabled = false;
+            } else if (currentStep === 'price' && selectedPrice) {
+                btn.textContent = `Buscar conductor - $${selectedPrice.toLocaleString()}`;
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+        }
+        
+        // Manejar botón principal
+        function handleMainButton() {
+            if (currentStep === 'pickup') {
+                showDestinations();
+            } else if (currentStep === 'price' && selectedPrice) {
+                requestRide();
+            }
+        }
+        
+        // Solicitar viaje
+        function requestRide() {
+            document.getElementById('location-section').style.display = 'none';
+            document.getElementById('price-section').style.display = 'none';
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('main-btn').style.display = 'none';
+            
+            // Simular búsqueda
+            setTimeout(() => {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('status').classList.add('active');
+                document.getElementById('status-text').textContent = '¡Conductor encontrado!';
+                
+                // Mostrar modal con código
+                showConfirmModal();
+            }, 3000);
+        }
+        
+        // Mostrar modal de confirmación
+        function showConfirmModal() {
+            const codes = ['ALFA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO'];
+            const code = codes[Math.floor(Math.random() * codes.length)];
+            const number = Math.floor(Math.random() * 900) + 100;
+            
+            document.getElementById('military-code').textContent = `${code}-${number}`;
+            document.getElementById('confirm-modal').style.display = 'block';
+        }
+        
+        // Cerrar modal
+        function closeModal() {
+            document.getElementById('confirm-modal').style.display = 'none';
+            // Aquí redirigir a tracking o cerrar
+            tg.close();
+        }
+        
+        // Contactar soporte
+        function contactSupport(type) {
+            const phone = '+573232350038';
+            const message = type === 'sos' ? 'EMERGENCIA U-Driver' : 'Queja U-Driver';
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+        
+        // Inicializar al cargar
+        window.onload = function() {
+            initMap();
+            
+            // Mostrar nombre de usuario
+            if (tg.initDataUnsafe.user) {
+                document.getElementById('user-name').textContent = 
+                    tg.initDataUnsafe.user.first_name || 'Usuario';
+            }
+            
+            // Configurar tema
+            if (tg.colorScheme === 'dark') {
+                document.body.style.background = '#1a1a1a';
+            }
+        };
+    </script>
+</body>
+</html>

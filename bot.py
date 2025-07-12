@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 
 # CONFIGURACIÓN
 BOT_TOKEN = "7635211423:AAGKnLPi4lsPe0YjCA28P5Y2iL39dvw9Q2A"
-WEB_APP_URL = "https://tu-app.onrender.com"  # Lo cambiaremos después
+WEB_APP_URL = "https://shiny-train-x54pvp56q6qgh9q79-5000.app.github.dev"
 
 # Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
     welcome_text = f"""
-🏍️ *¡Bienvenido a U-Driver {user.first_name}!*
+🚖 *¡Bienvenido a U-Driver {user.first_name}!*
 
 El servicio de mototaxi más rápido de San Antonio del Táchira.
 
@@ -24,7 +24,7 @@ El servicio de mototaxi más rápido de San Antonio del Táchira.
     
     # Botones principales
     keyboard = [
-        [InlineKeyboardButton("🚖 Pedir Viaje", callback_data="pedir_viaje")],
+        [InlineKeyboardButton("🚖 Pedir Viaje", web_app=WebAppInfo(url=f"{WEB_APP_URL}/cliente"))],
         [InlineKeyboardButton("🏍️ Soy Conductor", callback_data="conductor_menu")],
         [InlineKeyboardButton("❓ Ayuda", callback_data="help"),
          InlineKeyboardButton("📊 Mi Perfil", callback_data="profile")]
@@ -43,11 +43,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    if query.data == "pedir_viaje":
-        text = "🚖 *PEDIR VIAJE*\n\nPronto habilitaremos esta función. Por ahora usa el botón web cuando esté listo."
-        keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data="back_to_start")]]
-        
-    elif query.data == "conductor_menu":
+    if query.data == "conductor_menu":
         text = """
 🏍️ *MENÚ CONDUCTOR*
 
@@ -57,6 +53,7 @@ Para trabajar con U-Driver necesitas una suscripción activa.
 📱 Pago: Nequi o efectivo
 """
         keyboard = [
+            [InlineKeyboardButton("📊 Mi Dashboard", web_app=WebAppInfo(url=f"{WEB_APP_URL}/conductor"))],
             [InlineKeyboardButton("💳 Activar Suscripción", callback_data="subscription")],
             [InlineKeyboardButton("🔙 Volver", callback_data="back_to_start")]
         ]
@@ -79,6 +76,7 @@ Para trabajar con U-Driver necesitas una suscripción activa.
 • Gana dinero
 
 📞 Soporte: @UDriverSoporte
+⚠️ Quejas: +573232350038
 """
         keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data="back_to_start")]]
         
@@ -114,14 +112,14 @@ Tu suscripción se activará en minutos.
         # Volver al menú principal
         user = query.from_user
         welcome_text = f"""
-🏍️ *¡Bienvenido a U-Driver {user.first_name}!*
+🚖 *¡Bienvenido a U-Driver {user.first_name}!*
 
 El servicio de mototaxi más rápido de San Antonio del Táchira.
 
 ¿Qué deseas hacer?
 """
         keyboard = [
-            [InlineKeyboardButton("🚖 Pedir Viaje", callback_data="pedir_viaje")],
+            [InlineKeyboardButton("🚖 Pedir Viaje", web_app=WebAppInfo(url=f"{WEB_APP_URL}/cliente"))],
             [InlineKeyboardButton("🏍️ Soy Conductor", callback_data="conductor_menu")],
             [InlineKeyboardButton("❓ Ayuda", callback_data="help"),
              InlineKeyboardButton("📊 Mi Perfil", callback_data="profile")]
