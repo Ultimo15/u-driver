@@ -103,7 +103,8 @@ def add_user(telegram_id, username, first_name, user_type='client'):
     """Agregar o actualizar usuario"""
     conn = get_connection()
     if not conn:
-        return None
+        logger.warning("No hay conexión a DB, usuario no guardado")
+        return {"telegram_id": telegram_id, "username": username, "first_name": first_name}
         
     try:
         with conn.cursor() as cur:

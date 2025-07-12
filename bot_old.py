@@ -1,19 +1,31 @@
+import os
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-import logging
+from database import init_db, add_user, get_user
+import asyncio
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
+# Configuración de logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# CONFIGURACIÓN
+# Token del bot (CAMBIA ESTO)
 BOT_TOKEN = "7635211423:AAGKnLPi4lsPe0YjCA28P5Y2iL39dvw9Q2A"
-WEB_APP_URL = "https://tu-app.onrender.com"  # Lo cambiaremos después
+# URL de tu app (la actualizaremos después)
+WEB_APP_URL = "https://u-driver.onrender.com"
 
 # Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat_id = update.effective_chat.id
     
+    # Guardar usuario en base de datos
+    add_user(chat_id, user.username, user.first_name)
+    
+    # Mensaje de bienvenida
     welcome_text = f"""
 🏍️ *¡Bienvenido a U-Driver {user.first_name}!*
 
@@ -24,7 +36,7 @@ El servicio de mototaxi más rápido de San Antonio del Táchira.
     
     # Botones principales
     keyboard = [
-        [InlineKeyboardButton("🚖 Pedir Viaje", callback_data="pedir_viaje")],
+        [InlineKeyboardButton("🚖 Pedir Viaje", web_app=WebAppInfo(url=f"{WEB_APP_URL}/cliente"))],
         [InlineKeyboardButton("🏍️ Soy Conductor", callback_data="conductor_menu")],
         [InlineKeyboardButton("❓ Ayuda", callback_data="help"),
          InlineKeyboardButton("📊 Mi Perfil", callback_data="profile")]
@@ -43,11 +55,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    if query.data == "pedir_viaje":
-        text = "🚖 *PEDIR VIAJE*\n\nPronto habilitaremos esta función. Por ahora usa el botón web cuando esté listo."
-        keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data="back_to_start")]]
-        
-    elif query.data == "conductor_menu":
+    if query.data == "conductor_menu":
         text = """
 🏍️ *MENÚ CONDUCTOR*
 
@@ -57,6 +65,7 @@ Para trabajar con U-Driver necesitas una suscripción activa.
 📱 Pago: Nequi o efectivo
 """
         keyboard = [
+            [InlineKeyboardButton("📊 Mi Dashboard", web_app=WebAppInfo(url=f"{WEB_APP_URL}/conductor"))],
             [InlineKeyboardButton("💳 Activar Suscripción", callback_data="subscription")],
             [InlineKeyboardButton("🔙 Volver", callback_data="back_to_start")]
         ]
@@ -83,13 +92,14 @@ Para trabajar con U-Driver necesitas una suscripción activa.
         keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data="back_to_start")]]
         
     elif query.data == "profile":
+        user_data = get_user(query.from_user.id)
         text = f"""
 👤 *TU PERFIL*
 
 🆔 ID: `{query.from_user.id}`
 📱 Usuario: @{query.from_user.username or 'Sin username'}
-🏆 Viajes: 0
-⭐ Calificación: 5.0
+🏆 Viajes: {user_data.get('trips', 0) if user_data else 0}
+⭐ Calificación: {user_data.get('rating', '5.0') if user_data else '5.0'}
 
 🎮 Nivel: Principiante
 🏅 Puntos: 0
@@ -112,27 +122,7 @@ Tu suscripción se activará en minutos.
         
     elif query.data == "back_to_start":
         # Volver al menú principal
-        user = query.from_user
-        welcome_text = f"""
-🏍️ *¡Bienvenido a U-Driver {user.first_name}!*
-
-El servicio de mototaxi más rápido de San Antonio del Táchira.
-
-¿Qué deseas hacer?
-"""
-        keyboard = [
-            [InlineKeyboardButton("🚖 Pedir Viaje", callback_data="pedir_viaje")],
-            [InlineKeyboardButton("🏍️ Soy Conductor", callback_data="conductor_menu")],
-            [InlineKeyboardButton("❓ Ayuda", callback_data="help"),
-             InlineKeyboardButton("📊 Mi Perfil", callback_data="profile")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(
-            text=welcome_text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
+        await start(update, context)
         return
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -142,20 +132,26 @@ El servicio de mototaxi más rápido de San Antonio del Táchira.
         reply_markup=reply_markup
     )
 
-# Main
-def main():
-    print("Iniciando U-Driver Bot...")
+# Función principal
+async def main():
+    # Inicializar base de datos
+    try:
+        init_db()
+        logger.info("Base de datos conectada")
+    except Exception as e:
+        logger.warning(f"Base de datos no disponible: {e}")
+        logger.info("Continuando sin base de datos...")
     
-    # Crear app
+    # Crear aplicación
     app = Application.builder().token(BOT_TOKEN).build()
     
     # Agregar manejadores
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    # Iniciar
-    print("Bot listo! Envía /start en Telegram")
-    app.run_polling()
+    # Iniciar bot
+    logger.info("Bot iniciado... Presiona Ctrl+C para detener")
+    await app.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
